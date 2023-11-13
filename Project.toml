@@ -1,0 +1,4 @@
+name = "OscillationCatalysis"
+uuid = "ca035794-ada6-4b87-8c9f-365817036b60"
+authors = ["vydu <vydu@unc.edu>"]
+version = "0.1.0"
