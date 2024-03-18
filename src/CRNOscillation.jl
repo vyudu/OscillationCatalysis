@@ -16,13 +16,28 @@ include("reactionNetworks.jl")
 # Oscillate the volume between ϵ and 1/ϵ, where ϵ ≈ 1
 # k_ratio = k2 / k1
 # returns: N_B/N_A for the chosen parameters
-#
-### Equivalent ways of defining the ODE System
-# Going directly from the ReactionSystem: convert(ODESystem, rn)
+
+### Equivalent ways of defining the ODE System # Going directly from the ReactionSystem: convert(ODESystem, rn)
 # Using the S-matrix and j-space: f(du, u, p, t): du = S * j_space(N, rn, rates)  
 # When using the latter method, need to divide certain columns to account for combinatoric rate law
 
-function mechanisticLandscape(additions::Vector{Int64}, ΔG_AF, ΔG_FF, ΔG_A; steps=4, intrinsic_barrier=3)
+# function optimalLandscape(nStates::Int64, α_max::Float64, A::Float64; inverting=true)
+#     fwd = (inverting ? ((nStates-1)*α_max - A)/nStates : α_max)
+#     rev = (inverting ? α_max : ((nStates-1)*α_max + A)/nStates)
+#     landscape = repeat([fwd, rev], nStates)
+#     inverting ? (landscape[end] = 0) : (landscape[end-1] = 0)
+#     landscape
+# end
+
+function ratesFromDict(rn, rate_consts)
+    pm = paramsmap(rn)
+    rate_consts = sort(rate_consts, by=x->pm[x])
+    rate_consts = collect(values(rate_consts))
+    rate_consts
+end
+
+function mechanisticLandscape(additions, ΔG_AF, ΔG_FF, ΔG_A, intrinsic_barrier)
+    steps = length(additions)
     landscape = zeros(Int64, steps * 2)
     landscape .= intrinsic_barrier
 
@@ -36,19 +51,24 @@ function mechanisticLandscape(additions::Vector{Int64}, ΔG_AF, ΔG_FF, ΔG_A; s
     landscape
 end
 
-function optimalLandscape(nStates, α_max, A; inverting=true)
-    fwd = (inverting ? ((nStates-1)*α_max - A)/nStates : α_max)
-    rev = (inverting ? α_max : ((nStates-1)*α_max + A)/nStates)
-    landscape = repeat([fwd, rev], nStates)
-    inverting ? (landscape[end] = 0) : (landscape[end-1] = 0)
-    landscape
-end
 
-function setRateConstants(landscape, rn, β; r_0 = 1., f1 = 10., f1r = 0.1, f2 = 10., f2r = 0.1)
+# Take in: reaction network, AF interaction, FF interaction, 4F->A free energy, inverse temperature
+# Return: Dictionary of the reaction parameters
+function setRateConstants(rn, ΔG_AF, ΔG_FF, ΔG_A, β, feed_rates; steps=4, intrinsic_barrier=3, r_0 = 100., comp = false, ΔG_BF = ΔG_AF, ΔG_B = ΔG_A)
+    
+    if (length(feed_rates) != length(reactionparams(rn)) - (comp+1)*2*steps)
+        error("Length of feed rate vector is incorrect")
+    end
+    
+    additions = [length(reactions(rn)[2*i-1].substoich) > 1 ? reactions(rn)[2*i-1].substoich[2] : 0 for i in 1:steps]
+    comp && (additions_B = [length(reactions(rn)[2*i-1].substoich) > 1 ? reactions(rn)[2*i-1].substoich[2] : 0 for i in steps+1:2*steps])
+
+    landscape = mechanisticLandscape(additions, ΔG_AF, ΔG_FF, ΔG_A, intrinsic_barrier)
+    comp && (landscape = vcat(landscape, mechanisticLandscape(additions_B, ΔG_BF, ΔG_FF, ΔG_B, intrinsic_barrier)))
+
     k = r_0*exp.(-landscape*β)
-    numFeed = Int64((length(reactionparams(rn)) - length(landscape)) / 2)
-    push!(k, [f1, f1r, f2, f2r]...)
-    return Dict(zip(reactionparams(rn), k))
+    push!(k, feed_rates...)
+    return landscape, Dict(zip(reactionparams(rn), k))
 end
 
 function singleReaction(k_ratio, stoich_a, A_tot, λ) 
@@ -61,41 +81,35 @@ function singleReaction(k_ratio, stoich_a, A_tot, λ)
     l_ss = nullspace(S_l)
     avg_ss = nullspace(S_avg)
 
-    # find steady state N_A
-    # k_1 * N_A^n / V^{n-1} = k_2 N_B
-    # N_A + n*N_B = A_tot
-    # N_A + n*(exp(-(n-1)*α)/k_ratio)*N_A^n = A_tot
-    
     N_A = [solveset(Eq(n/k_ratio * exp(-(n-1)*α) * x^n + x, A_tot), x),
            solveset(Eq(n/k_ratio * exp((n-1)*α) * x^n + x, A_tot), x),
            solveset(Eq(n/k_ratio * cosh((n-1)*α) * x^n + x, A_tot), x)]
-
-    #(N_tot .- N_A) ./ N_tot
 end
 
-N0_a = Dict(zip(species(autocatalysis_closed), [10., 100., 0., 0., 0.]))
-k_a = Dict(zip(reactionparams(autocatalysis_closed), [1.,5.,1.,5.,1.,5.,1.,5.]))
-default = merge(N0_a, k_a)
-setdefaults!(autocatalysis_closed, default)
-
-function volumeOscillation(rn, λ0, Δλ, N0, rate_consts; t_end=10.)
+# Return: parameters of diff eqs, steady state solutions
+function volumeOscillation(rn, λ0, Δλ, N0, rate_consts; t_end=10., additions=[])
     n = numreactions(rn); m = numspecies(rn)
     if length(rate_consts) != n || length(N0) != m
         error("Input parameters are of incorrect size")
     end
     
     rxs = reactions(rn)
-    order = [sum(rxs[i].substoich) for i in 1:length(rxs)] .- 1
-    for i in length(order)
-        if order[i] < 0
-            order[i] = 0
-        end
-    end
+    order = [sum(rxs[i].substoich) for i in 1:length(rxs)]
+    order = [s <= 1 ? 0 : s-1 for s in order]
+    if !isempty(additions)
+        [order[i*2-1] = additions[i] for i in 1:length(additions)]
+    end 
 
     if typeof(rate_consts) <: Dict 
         pm = paramsmap(rn)
         rate_consts = sort(rate_consts, by=x->pm[x])
-        rate_consts = values(rate_consts)
+        rate_consts = collect(values(rate_consts))
+    end
+
+    if typeof(N0) <: Dict 
+        sm = speciesmap(rn)
+        N0 = sort(N0, by=x->sm[x])
+        N0 = collect(values(N0))
     end
 
     params_h = exp.(-order * (λ0+Δλ)) .* rate_consts
@@ -209,19 +223,29 @@ function A(rn, solutions, λ0, Δλ, k_dict)
 end
 
 # The affinity of an individual catalytic cycle, equal to A = -λΔσ - βΔF + \log (n_F^4)/n_A
-function A(solutions, λ0, Δλ, ΔF; β = 1., Δσ = 3)
+function A(solutions, λ0, Δλ, ΔF; β = 1., Δσ = 3, m_idx = 1)
     l_ss, h_ss, a_ss = solutions
-    A_a = Δσ*log((exp(-λ0-Δλ)+exp(-λ0+Δλ))/2) - β*ΔF + log(a_ss[2]^4 / a_ss[1])
-    A_l = -Δσ*(λ0-Δλ) - β*ΔF + log(l_ss[2]^4 / l_ss[1])
-    A_h = -Δσ*(λ0+Δλ) - β*ΔF + log(h_ss[2]^4 / h_ss[1])
+    A_a = Δσ*log((exp(-λ0-Δλ)+exp(-λ0+Δλ))/2) - β*ΔF + log(a_ss[2]^4 / a_ss[m_idx])
+    A_l = -Δσ*(λ0-Δλ) - β*ΔF + log(l_ss[2]^4 / l_ss[m_idx])
+    A_h = -Δσ*(λ0+Δλ) - β*ΔF + log(h_ss[2]^4 / h_ss[m_idx])
     A_l, A_h, A_a
 end
 
-#function autocatalysis(n_F::Int64, increments::Vector{Int64})
-    #if sum(increments) != n_F || !all(0 .<= increments)
-        #error("Invalid increment array")
-    #end
+function simulate(rn, ΔG_AF, ΔG_FF, ΔG_A, β, feed_rates, λ0, Δλ, N0; t_end = 10., comp = false)
+    landscape, k = setRateConstants(rn, ΔG_AF, ΔG_FF, ΔG_A, 1., feed_rates, comp = comp)
+    println(k)
+    params, sols = volumeOscillation(rn, λ0, Δλ, N0, k);
+    println(sols[1].u)
+    aff = A(sols, λ0, Δλ, ΔG_A)
+    sols, aff
+end
 
-
-
-#end
+function A_inst(rn, n_A, n_F, λ0, Δλ, ΔF; β=1.)
+    S = sMatrix(rn, λ0, Δλ)
+    affs = Float64[]
+    for s in S
+        V = log(s[1,1]*s[3,3]*s[4,5]*s[5,7] / (s[1,2]*s[3,4]*s[4,6]*s[5,8]))
+        push!(affs, V-β*ΔF+log(n_F^4 / n_A))
+    end
+    affs
+end

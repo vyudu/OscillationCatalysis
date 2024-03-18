@@ -1,181 +1,231 @@
 using Catalyst
+# Reactions to consider
+
+closed_competition = @reaction_network begin
+    (k1, k1r), A1 <--> A2
+    (k2, k2r), A2 <--> A3 
+    (k3, k3r), A3 <--> A4
+    (k4, k4r), A4 <--> A1 + A1
+    (kb1, kb1r), B1 <--> B2 
+    (kb2, kb2r), B2 <--> B3 
+    (kb3, kb3r), B3 <--> B4 
+    (kb4, kb4r), B4 <--> B1 + B1
+end
 
 oneStep_open = @reaction_network begin
-    (k1, k1r), 4F + A <--> B
-    (k2, k2r), B <--> C 
-    (k3, k3r), C <--> D
-    (k4, k4r), D <--> A + A
+    (k1, k1r), A1 + 4F <--> A2
+    (k2, k2r), A2 <--> A3 
+    (k3, k3r), A3 <--> A4
+    (k4, k4r), A4 <--> A1 + A1
     (f1, f1r), ∅ <--> F
-    (f2, f2r), A <--> ∅
+    (f2, f2r), A1 <--> ∅
 end
 
 oneStep_closed = @reaction_network begin
-    (k1, k1r), 4F + A <--> B
-    (k2, k2r), B <--> C 
-    (k3, k3r), C <--> D
-    (k4, k4r), D <--> A + A
+    (k1, k1r), A1 + 4F <--> A2
+    (k2, k2r), A2 <--> A3 
+    (k3, k3r), A3 <--> A4
+    (k4, k4r), A4 <--> A1 + A1
 end
 
 twoStep_open = @reaction_network begin
-    (k1, k1r), 2F + A <--> AF2 
-    (k2, k2r), 2F + AF2 <--> AA 
-    (k3, k3r), AA <--> AA2 
-    (k4, k4r), AA2 <--> A + A
+    (k1, k1r), A1 + 2F <--> A2 
+    (k2, k2r), A2 + 2F <--> A3 
+    (k3, k3r), A3 <--> A4 
+    (k4, k4r), A4 <--> A1 + A1
     (f1, f1r), ∅ <--> F
-    (f2, f2r), A <--> ∅
+    (f2, f2r), A1 <--> ∅
 end
 
 twoStep_closed = @reaction_network begin
-    (k1, k1r), 2F + A <--> AF2 
-    (k2, k2r), 2F + AF2 <--> AA 
-    (k3, k3r), AA <--> AA2 
-    (k4, k4r), AA2 <--> A + A
+    (k1, k1r), A1 + 2F <--> A2 
+    (k2, k2r), A2 + 2F <--> A3 
+    (k3, k3r), A3 <--> A4 
+    (k4, k4r), A4 <--> A1 + A1
 end
 
 threeStep_open = @reaction_network begin
-    (k1, k1r), 2F + A <--> AF2 
-    (k2, k2r), F + AF2 <--> AF3 
-    (k3, k3r), F + AF3 <--> AF4 
-    (k4, k4r), AF4 <--> A + A
+    (k1, k1r), A1 + 2F <--> A2 
+    (k2, k2r), A2 + F <--> A3 
+    (k3, k3r), A3 + F <--> A4 
+    (k4, k4r), A4 <--> A1 + A1
     (f1, f1r), ∅ <--> F
-    (f2, f2r), A <--> ∅
+    (f2, f2r), A1 <--> ∅
 end
 
 threeStep_closed = @reaction_network begin
-    (k1, k1r), 2F + A <--> AF2 
-    (k2, k2r), F + AF2 <--> AF3 
-    (k3, k3r), F + AF3 <--> AF4 
-    (k4, k4r), AF4 <--> A + A
+    (k1, k1r), A1 + 2F <--> A2 
+    (k2, k2r), A2 + F <--> A3 
+    (k3, k3r), A3 + F <--> A4 
+    (k4, k4r), A4 <--> A1 + A1
 end
 
 autocatalysis_closed = @reaction_network begin
-    (k1, k1r), A + F <--> AF 
-    (k2, k2r), AF + F <--> AF2 
-    (k3, k3r), AF2 + F <--> AF3 
-    (k4, k4r), AF3 + F <--> A + A 
+    (k1, k1r), A1 + F <--> A2 
+    (k2, k2r), A2 + F <--> A3 
+    (k3, k3r), A3 + F <--> A4 
+    (k4, k4r), A4 + F <--> A1 + A1 
 end
 
 autocatalysis_open = @reaction_network begin
-    (k1, k1r), A + F <--> AF 
-    (k2, k2r), AF + F <--> AF2 
-    (k3, k3r), AF2 + F <--> AF3 
-    (k4, k4r), AF3 + F <--> A + A 
+    (k1, k1r), A1 + F <--> A2 
+    (k2, k2r), A2 + F <--> A3 
+    (k3, k3r), A3 + F <--> A4 
+    (k4, k4r), A4 + F <--> A1 + A1 
     (f1, f1r), ∅ <--> F
-    (f2, f2r), A <--> ∅
+    (f2, f2r), A1 <--> ∅
+end
+
+competitive_A4B4_open = @reaction_network begin
+    (k1, k1r), A1 + F <--> A2 
+    (k2, k2r), A2 + F <--> A3 
+    (k3, k3r), A3 + F <--> A4 
+    (k4, k4r), A4 + F <--> A1 + A1 
+    (b1, b1r), B1 + F <--> B2
+    (b2, b2r), B2 + F <--> B3
+    (b3, b3r), B3 + F <--> B4
+    (b4, b4r), B4 + F <--> B1 + B1
+    (f1, f1r), ∅ <--> F
+    (f2, f2r), A1 <--> ∅
+    (f3, f3r), B1 <--> ∅
+end
+
+competitive_A4B4_closed = @reaction_network begin
+    (k1, k1r), A1 + F <--> A2 
+    (k2, k2r), A2 + F <--> A3 
+    (k3, k3r), A3 + F <--> A4 
+    (k4, k4r), A4 + F <--> A1 + A1 
+    (b1, b1r), B1 + F <--> B2
+    (b2, b2r), B2 + F <--> B3
+    (b3, b3r), B3 + F <--> B4
+    (b4, b4r), B4 + F <--> B1 + B1
+end
+
+competitive_A4B3_open = @reaction_network begin
+    (k1, k1r), A1 + F <--> A2 
+    (k2, k2r), A2 + F <--> A3 
+    (k3, k3r), A3 + F <--> A4 
+    (k4, k4r), A4 + F <--> A1 + A1 
+    (b1, b1r), B1 + 2F <--> B2
+    (b2, b2r), B2 + F <--> B3
+    (b3, b3r), B3 + F <--> B4
+    (b4, b4r), B4 <--> B1 + B1
+    (f1, f1r), ∅ <--> F
+    (f2, f2r), A1 <--> ∅
+    (f3, f3r), B1 <--> ∅
 end
 
 competitive_A4B3_closed = @reaction_network begin
-    (k1, k1r), A + F <--> AF 
-    (k2, k2r), AF + F <--> AF2 
-    (k3, k3r), AF2 + F <--> AF3 
-    (k4, k4r), AF3 + F <--> A + A 
-    (b1, b1r), B + 2F <--> BF2
-    (b2, b2r), BF2 + F <--> BF3
-    (b3, b3r), BF3 + F <--> BF4
-    (b4, b4r), BF4 <--> B + B
+    (k1, k1r), A1 + F <--> A2 
+    (k2, k2r), A2 + F <--> A3 
+    (k3, k3r), A3 + F <--> A4 
+    (k4, k4r), A4 + F <--> A1 + A1 
+    (b1, b1r), B1 + 2F <--> B2
+    (b2, b2r), B2 + F <--> B3
+    (b3, b3r), B3 + F <--> B4
+    (b4, b4r), B4 <--> B1 + B1
 end
 
 competitive_A4B2_open = @reaction_network begin
-    (k1, k1r), A + F <--> AF 
-    (k2, k2r), AF + F <--> AF2 
-    (k3, k3r), AF2 + F <--> AF3 
-    (k4, k4r), AF3 + F <--> A + A 
-    (b1, b1r), B + 2F <--> BF2
-    (b2, b2r), BF2 + F <--> BF3
-    (b3, b3r), BF3 + F <--> BF4
-    (b4, b4r), BF4 <--> B + B
+    (k1, k1r), A1 + F <--> A2 
+    (k2, k2r), A2 + F <--> A3 
+    (k3, k3r), A3 + F <--> A4 
+    (k4, k4r), A4 + F <--> A1 + A1 
+    (b1, b1r), B1 + 2F <--> B2
+    (b2, b2r), B2 + F <--> B3
+    (b3, b3r), B3 + F <--> B4
+    (b4, b4r), B4 <--> B1 + B1
     (f1, f1r), ∅ <--> F
-    (f2, f2r), A <--> ∅
-    (f3, f3r), B <--> ∅
+    (f2, f2r), A1 <--> ∅
+    (f3, f3r), B1 <--> ∅
 end
 
 competitive_A4B2_closed = @reaction_network begin
-    (k1, k1r), A + F <--> AF 
-    (k2, k2r), AF + F <--> AF2 
-    (k3, k3r), AF2 + F <--> AF3 
-    (k4, k4r), AF3 + F <--> A + A 
-    (b1, b1r), B + 2F <--> BF2
-    (b2, b2r), BF2 + 2F <--> BB
-    (b3, b3r), BB <--> BB2
-    (b4, b4r), BB2 <--> B + B
+    (k1, k1r), A1 + F <--> A2 
+    (k2, k2r), A2 + F <--> A3 
+    (k3, k3r), A3 + F <--> A4 
+    (k4, k4r), A4 + F <--> A1 + A1 
+    (b1, b1r), B1 + 2F <--> B2
+    (b2, b2r), B2 + 2F <--> B3
+    (b3, b3r), B3 <--> B4
+    (b4, b4r), B4 <--> B1 + B1
 end
 
 competitive_A4B2_open = @reaction_network begin
-    (k1, k1r), A + F <--> AF 
-    (k2, k2r), AF + F <--> AF2 
-    (k3, k3r), AF2 + F <--> AF3 
-    (k4, k4r), AF3 + F <--> A + A 
-    (b1, b1r), B + 2F <--> BF2
-    (b2, b2r), BF2 + 2F <--> BB
-    (b3, b3r), BB <--> BB2
-    (b4, b4r), BB2 <--> B + B
+    (k1, k1r), A1 + F <--> A2 
+    (k2, k2r), A2 + F <--> A3 
+    (k3, k3r), A3 + F <--> A4 
+    (k4, k4r), A4 + F <--> A1 + A1 
+    (b1, b1r), B1 + 2F <--> B2
+    (b2, b2r), B2 + 2F <--> B3
+    (b3, b3r), B3 <--> B4
+    (b4, b4r), B4 <--> B1 + B1
     (f1, f1r), ∅ <--> F
-    (f2, f2r), A <--> ∅
-    (f3, f3r), B <--> ∅
+    (f2, f2r), A1 <--> ∅
+    (f3, f3r), B1 <--> ∅
 end
 
 competitive_A4B1_closed = @reaction_network begin
-    (k1, k1r), A + F <--> AF 
-    (k2, k2r), AF + F <--> AF2 
-    (k3, k3r), AF2 + F <--> AF3 
-    (k4, k4r), AF3 + F <--> A + A 
-    (b1, b1r), B + 4F <--> BB
-    (b2, b2r), BB <--> BBa
-    (b3, b3r), BBa <--> BBb
-    (b4, b4r), BBb <--> B + B
+    (k1, k1r), A1 + F <--> A2 
+    (k2, k2r), A2 + F <--> A3 
+    (k3, k3r), A3 + F <--> A4 
+    (k4, k4r), A4 + F <--> A1 + A1 
+    (b1, b1r), B1 + 4F <--> B2
+    (b2, b2r), B2 <--> B3
+    (b3, b3r), B3 <--> B4
+    (b4, b4r), B4 <--> B1 + B1
 end
 
 competitive_A4B1_open = @reaction_network begin
-    (k1, k1r), A + F <--> AF 
-    (k2, k2r), AF + F <--> AF2 
-    (k3, k3r), AF2 + F <--> AF3 
-    (k4, k4r), AF3 + F <--> A + A 
-    (b1, b1r), B + 4F <--> BBa
-    (b2, b2r), BBa <--> BBb
-    (b3, b3r), BBb <--> BBc
-    (b4, b4r), BBc <--> B + B
+    (k1, k1r), A1 + F <--> A2 
+    (k2, k2r), A2 + F <--> A3 
+    (k3, k3r), A3 + F <--> A4 
+    (k4, k4r), A4 + F <--> A1 + A1 
+    (b1, b1r), B1 + 4F <--> B2
+    (b2, b2r), B2 <--> B3
+    (b3, b3r), B3 <--> B4
+    (b4, b4r), B4 <--> B1 + B1
     (f1, f1r), ∅ <--> F
-    (f2, f2r), A <--> ∅
-    (f3, f3r), B <--> ∅
+    (f2, f2r), A1 <--> ∅
+    (f3, f3r), B1 <--> ∅
 end
 
 ac_competition_d = @reaction_network begin
-    (k1, k1r), A + F <--> AF 
-    (k2, k2r), AF + F <--> AF2 
-    (k3, k3r), AF2 + F <--> AF3 
-    k4, AF3 + F --> A + A 
-    k5, A --> 4F
-    (kb1, kb1r), B + F <--> BF 
-    (kb2, kb2r), BF + F <--> BF2 
-    (kb3, kb3r), BF2 + F <--> BF3 
-    (kb4, kb4r), BF3 + F <--> BF4 
-    kb5, BF4 + F --> B + B
-    kb6, B --> 5F
+    (k1, k1r), A1 + F <--> A2 
+    (k2, k2r), A2 + F <--> A3 
+    (k3, k3r), A3 + F <--> A4 
+    k4, A4 + F --> A1 + A1 
+    k5, A1 --> 4F
+    (kb1, kb1r), B1 + F <--> B2 
+    (kb2, kb2r), B2 + F <--> B3 
+    (kb3, kb3r), B3 + F <--> B4 
+    (kb4, kb4r), B4 + F <--> B5 
+    kb5, B5 + F --> B1 + B1
+    kb6, B1 --> 5F
 end
 
 ac_competition_d2 = @reaction_network begin
-    (k1, k1r), A + F <--> AF 
-    (k2, k2r), AF + F <--> AF2 
-    (k3, k3r), AF2 + F <--> AF3 
-    (k4, k4r), AF3 + F <--> A + A 
-    k5, A --> 4F
-    (kb1, kb1r), B + F <--> BF 
-    (kb2, kb2r), BF + F <--> BF2 
-    (kb3, kb3r), BF2 + F <--> BF3 
-    (kb4, kb4r), BF3 + F <--> BF4 
-    (kb5, kb5r), BF4 + F <--> B + B
-    kb6, B --> 5F
+    (k1, k1r), A1 + F <--> A2 
+    (k2, k2r), A2 + F <--> A3 
+    (k3, k3r), A3 + F <--> A4 
+    (k4, k4r), A4 + F <--> A1 + A1 
+    k5, A1 --> 4F
+    (kb1, kb1r), B1 + F <--> B2 
+    (kb2, kb2r), B2 + F <--> B3 
+    (kb3, kb3r), B3 + F <--> B4 
+    (kb4, kb4r), B4 + F <--> B5 
+    (kb5, kb5r), B5 + F <--> B1 + B1
+    kb6, B1 --> 5F
 end
 
 ac_competition_d3 = @reaction_network begin
-    (k1, k1r), A + F <--> AF 
-    (k2, k2r), AF + F <--> AF2 
-    (k3, k3r), AF2 + F <--> AF3 
-    (k4), AF3 + F --> A + A 
-    (kb1, kb1r), B + F <--> BF 
-    (kb2, kb2r), BF + F <--> BF2 
-    (kb3, kb3r), BF2 + F <--> BF3 
-    (kb4, kb4r), BF3 + F <--> BF4 
-    (kb5), BF4 + F --> B + B
+    (k1, k1r), A1 + F <--> A2 
+    (k2, k2r), A2 + F <--> A3 
+    (k3, k3r), A3 + F <--> A4 
+    (k4), A4 + F --> A1 + A1 
+    (kb1, kb1r), B1 + F <--> B2 
+    (kb2, kb2r), B2 + F <--> B3 
+    (kb3, kb3r), B3 + F <--> B4 
+    (kb4, kb4r), B4 + F <--> B5 
+    (kb5), B5 + F --> B1 + B1
 end
-

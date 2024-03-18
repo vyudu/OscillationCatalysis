@@ -1,6 +1,5 @@
 using LinearAlgebra
 using Graphs, MetaGraphs
-include("CycleOscillation.jl")
 
 # Vertex properties
 #   :energy
@@ -38,7 +37,7 @@ struct Cofactor
     potentials::Vector{<:Real}
 end
 
-# if the transfer goes to a resrvoir state, set the tuple as (idx, 0) where idx is the donor
+# if the transfer goes to a reservoir state, set the tuple as (idx, 0) where idx is the donor
 function marcusGraph(cofactors::Vector{Cofactor}, distances::Dict{Tuple{Int64,Int64},<:Real}, resΔG::Dict{Int64, <:Real})
     nStates = foldr(*, [cf.capacity for cf in cofactors] .+ 1)
     capacities = [cf.capacity for cf in cofactors]

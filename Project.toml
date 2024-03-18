@@ -2,3 +2,15 @@ name = "OscillationCatalysis"
 uuid = "ca035794-ada6-4b87-8c9f-365817036b60"
 authors = ["vydu <vydu@unc.edu>"]
 version = "0.1.0"
+
+[deps]
+Catalyst = "479239e8-5488-4da2-87a7-35f2df7eef83"
+DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
+Graphs = "86223c79-3864-5bf0-83f7-82e725a168b6"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+MetaGraphs = "626554b9-1ddb-594c-aa3c-2596fe9399a5"
+ODEInterfaceDiffEq = "09606e27-ecf5-54fc-bb29-004bd9f985bf"
+QuadGK = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
+StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"
+Sundials = "c3572dad-4567-51f8-b174-8c6c989267f4"
+SymPy = "24249f21-da20-56a4-8eb1-6a02cf4ae2e6"

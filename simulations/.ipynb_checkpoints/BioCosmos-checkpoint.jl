@@ -1,42 +1,48 @@
-include("CRNOscillation.jl")
-include("reactionNetworks.jl")
-
-# TODO: 
-### Affinity vs. lambda for a single network
-### Affinity vs. Curly C for a single network (smaller oscillations)
-### F_in, A_out = B_out are equal and equal to F / 2N
-### Genetic algorithm for selection pressure (ensure there is no finite-size effect, see if there is selection for replicators of different sizes) 
-### Use stochastic ODEs if we want to use combinatoric rate laws. If we use deterministic rate laws 
-### Should we allow selection on the energy landscape? In addition to selection on n (number of steps) and k (size of "polymer")
+using OscillationCatalysis, Catalyst, DifferentialEquations, Sundials
+const o = OscillationCatalysis
 
 # Define Parameters
 # ΔG_A is the energy associated with reaction 4F → A
 # ΔG_AF is the interaction energy between an A and an F
 ΔG_AF = 1; ΔG_BF = 1; ΔG_A = 6; ΔG_B = 6; ΔG_FF = 1
-β = 1.; λ0 = 1; Δλ = 1.5 
+β = 1.; λ0 = 0; Δλ = 0.5 
 
 # Species: A1, F, A2, A3, A4, B1, B2, B3, B4
 N0 = [.1, 1., 0., 0., 0., .1, 0., 0., 0.]
-init_c = Dict(zip(species(competitive_A4B1_open), N0))
-init_nc = Dict(zip(species(autocatalysis_open), N0[1:5]))
+init_c = Dict(zip(species(o.competitive_A4B1_open), N0))
+init_nc = Dict(zip(species(o.autocatalysis_open), N0[1:5]))
 
 # Rates: feed reactions
 feed_rates_c = [8., 1., 1., 1., 1., 1.]
 feed_rates_nc = [4., 1., 1., 1.]
 
 # Networks
-comp_rns = [competitive_A4B1_open, competitive_A4B2_open, competitive_A4B3_open]
-single_rns = [oneStep_open, twoStep_open, threeStep_open, autocatalysis_open];
+comp_rns = [o.competitive_A4B1_open, o.competitive_A4B2_open, o.competitive_A4B3_open]
+single_rns = [o.oneStep_open, o.twoStep_open, o.threeStep_open, o.autocatalysis_open];
 
 # Case 1: fix N_A, N_F, compute instantaneous affinity
+function A_inst_bargraph(n_a, n_f) 
+   l = A_inst(oneStep_open, n_a, n_f, λ0, Δλ, ΔG_A)[1]
+   h = A_inst(oneStep_open, n_a, n_f, λ0, Δλ, ΔG_A)[2]
+
+   affs = [A_inst(rn, n_a, n_f, λ0, Δλ, ΔG_A)[3] for rn in single_rns]  
+   p = bar(collect(1:4), affs, legend=false)
+   xlabel!("Steps in Reaction Network")
+   ylabel!("Instantaneous Affinity")
+
+   Plots.abline!(0, h, color=:blue); Plots.abline!(0, l, color=:red); Plots.abline!(0,0, color=:black)
+   ylims!((floor(h), ceil(l)))
+   title!("Instantaneous Affinity vs. Number of Steps")
+   annotate!([(4, h-0.2, "High Volume", 8), (4, l-0.2, "Low Volume", 8)])
+end
 
 # Case 2: fix N_F, compute the "non-competitive" fitness (proportion that goes into A, B at equilibrium)
-function nc_fitness(rn, n_l, n_h; feed_rates=[]) 
+function nc_fitness(rn, n_l, n_h) 
     ratios_l = Float64[]
     ratios_a = Float64[]
     ratios_h = Float64[]
 
-    ls, rate_consts = setRateConstants(rn, ΔG_AF, ΔG_FF, ΔG_A, β, feed_rates_c, comp=true)
+    ls, rate_consts = o.setRateConstants(rn, ΔG_AF, ΔG_FF, ΔG_A, β, feed_rates_c, comp=true)
     k = ratesFromDict(rn, rate_consts)
     additions = [length(reactions(rn)[2*i-1].substoich) > 1 ? reactions(rn)[2*i-1].substoich[2] : 0 for i in 1:8]
 
@@ -44,23 +50,20 @@ function nc_fitness(rn, n_l, n_h; feed_rates=[])
     ratio_B(sol) = sum(sol[5:8]) / sum(sol)
 
     for n_F in range(n_l, n_h, 100)
-        # in order to fix the food concentration, create a network without F, and modify the rates manually
         k_primes = k[1:16]
         [k_primes[2*i-1] *= n_F^(additions[i]) for i in 1:8]
 
-        N0 = [n_F / 4, 0., 0., 0., n_F / 4, 0., 0., 0.]
-        params, sols = volumeOscillation(closed_competition, λ0, Δλ, N0, k_primes, additions=additions)
+        N0 = [n_F / 4, 0., 0., 0., n_F /4, 0., 0., 0.]
+        params, sols = o.volumeOscillation(rn, λ0, Δλ, N0, k_primes, additions=additions)
         push!(ratios_l, ratio_B(sols[1].u))
         push!(ratios_h, ratio_B(sols[2].u))
         push!(ratios_a, ratio_B(sols[3].u))
     end
 
-    plot(range(n_l, n_h, 100), [ratios_l, ratios_h, ratios_a], labels=["Low Volume" "High Volume" "Average Volume"], title="Competition between replicators in a closed vessel", legendfontsize=16, titlefontsize=18, tickfontsize=14)
-    xlabel!("Fixed Food Concentration")
-    ylabel!("Proportion of Food in B")
+    plot(range(n_l, n_h, 100), [ratios_l, ratios_h, ratios_a], labels=["Low Volume" "High Volume" "Average Volume"], title="Non-competitive Fitness", legendfontsize=16, titlefontsize=18, tickfontsize=14)
 end
 
-# Plot the change in the exit rate of A, B as a function of time, turning on oscillation halfway through
+# Plot the concentrations of each species in the reactor as a function of time
 function competition(rn; tspan = (0., 100.), switch = tspan[2] / 2) 
     landscape, k = setRateConstants(rn, ΔG_AF, ΔG_FF, ΔG_A, 1., feed_rates_c, comp = true)
     params, sols = volumeOscillation(rn, λ0, Δλ, init_c, k)
@@ -221,7 +224,7 @@ function lr_λ(rn, λ_l, λ_h)
 end
 
 # Plot the affinity of a competitive network as a function of the log-volume
-function lr_lambda_comp(rn, λ_l, λ_h)
+function lr_λ_comp(rn, λ_l, λ_h)
     landscape, k = setRateConstants(rn, ΔG_AF, ΔG_FF, ΔG_A, 1., feed_rates_c, comp = true)
     affs = Float64[]
     lrs_A = Float64[]
@@ -233,12 +236,12 @@ function lr_lambda_comp(rn, λ_l, λ_h)
         aff = A(sols, λ, 0., ΔG_A)
         push!(lrs_A, lr_A)
         push!(lrs_B, lr_B)
-        push!(affs, aff[1])
+        push!(affs, af[1])
     end
     plot(collect(range(λ_l, λ_h, 100)), [lrs_A, lrs_B], title = "Leaving Rates vs. λ", labels = ["A" "B"])
 end
 
-function affinity_lambda_comp(rn, λ_l, λ_h)
+function affinity_λ_comp(rn, λ_l, λ_h)
     landscape, k = setRateConstants(rn, ΔG_AF, ΔG_FF, ΔG_A, 1., feed_rates_c, comp = true)
     affs_A = Float64[]
     affs_B = Float64[]
@@ -250,73 +253,4 @@ function affinity_lambda_comp(rn, λ_l, λ_h)
         push!(affs_B, aff_B[1])
     end
     plot(collect(range(λ_l, λ_h, 100)), [affs_A, affs_B], title = "Affinities vs. λ", labels = ["A" "B"])
-end
-
-# Plot the 
-function conc_plot(num="")
-    params_l, params_h, params_a = volumeOscillation(autocatalysis_open, λ0, Δλ, N0[1:5], [rates_o[1:8]..., 1., 1.])
-    ode = convert(ODESystem, competitive)
-    tspan = (0., 50.)
-    prob = ODEProblem(ode, N0, tspan, params_l)
-
-    # begin oscillation at time t = 50.
-    affect!(integrator) = integrator.p = params_a
-    cb = PresetTimeCallback([tspan[2] / 2], affect!)
-    sol = solve(prob, Tsit5(), callback = cb)
-
-    lr_A = [p[1] for p in sol.u] 
-
-    p = plot(sol.t, [lr_A], labels = ["Leaving rate of A"])
-    savefig(p, "BioCosmosPlots/pumpedPlot"*num*".png")
-    sol, p
-end
-
-# Plot the leaving rate of a competitive network as a function of the oscillation frequency
-function frequencyPlots()
-    affect!(integrator) = (integrator.p == params_l) ? params_h : params_l
-    cb = PresetTimeCallback([tspan[2]])
-end
-
-# Collect all plots for a given set of parameters
-function collectPlots()
-    freeEnergies = "ΔG_A = $ΔG_A" 
-    oscillationValues = "λ = $λ0 ± Δλ" 
-
-    # single network plots
-    A_λ_plots = [A_λ(rn, λ0-Δλ, λ0+Δλ) for rn in single_rns] 
-    l_λ_plots = [lr_λ(rn, λ0-Δλ, λ0+Δλ) for rn in single_rns] 
-    A_n = A_numSteps()
-    l_n = lr_numSteps()
-
-    plots = plot([A_λ_plots..., l_λ_plots..., A_n, l_n], layout=(5,2))
-
-    # competitive plots
-    conc_plots = [competition(rn) for rn in comp_rns]
-    nF_λ_plots = [nF_λ(rn, λ0-Δλ, λ0+Δλ) for rn in comp_rns]
-    A_nc = A_numSteps_comp()
-    l_nc = lr_numSteps_comp()
-
-    plots_c = plot([conc_plots..., nF_λ_plots..., A_nc, l_nc], layout=(5,2))
-    p = plot(plots, plots_c, layout=(1,2))
-    p
-end
-
-# Plot the number of food molecules as a function of λ
-function n_λ(rn, λ_l, λ_h; idx=2) 
-    landscape, k = setRateConstants(rn, ΔG_AF, ΔG_FF, ΔG_A, 1., feed_rates_c, comp = true)
-    nF = zeros(Float64, 0)
-
-    for λ in range(λ_l, λ_h, 100)
-        params, sols = volumeOscillation(rn, λ, 0., init_c, k)
-        push!(nF, sols[3].u[idx])
-    end
-
-    plot(collect(range(λ_l, λ_h, 100)), nF, title = "nF vs. λ")
-end
-
-function ratesFromDict(rn, rate_consts)
-    pm = paramsmap(rn)
-    rate_consts = sort(rate_consts, by=x->pm[x])
-    rate_consts = collect(values(rate_consts))
-    rate_consts
 end
